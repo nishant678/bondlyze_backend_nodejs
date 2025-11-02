@@ -2,8 +2,8 @@ require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { testConnection } = require('./database/connection');
-const { runMigrations } = require('./database/migrations/createTables');
+const { testConnection } = require('./config/connection');
+const { setupTables } = require('./config/setupTables');
 const { errorHandler, notFound } = require('./middlewares/errorHandler');
 
 // Import routes
@@ -37,7 +37,7 @@ app.use(notFound);
 app.use(errorHandler);
 
 // Initialize database and start server
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 8000;
 
 async function startServer() {
   try {
@@ -57,9 +57,9 @@ async function startServer() {
       throw new Error('Failed to connect to database');
     }
 
-    // Run migrations to create tables
-    console.log('🔄 Running database migrations...');
-    await runMigrations();
+    // Setup database tables
+    console.log('🔄 Setting up database tables...');
+    await setupTables();
 
     // Start server
     app.listen(PORT, () => {

@@ -1,8 +1,19 @@
 const mysql = require('mysql2/promise');
-const dbConfig = require('../config/database');
+const dbConfig = require('./database');
 
 // Create connection pool for better performance
-const pool = mysql.createPool(dbConfig);
+const pool = mysql.createPool({
+  host: dbConfig.host,
+  user: dbConfig.user,
+  password: dbConfig.password,
+  database: dbConfig.database,
+  port: dbConfig.port,
+  connectionLimit: dbConfig.connectionLimit,
+  waitForConnections: true,
+  queueLimit: 0,
+  enableKeepAlive: true,
+  keepAliveInitialDelay: 0
+});
 
 // Test the connection
 async function testConnection() {

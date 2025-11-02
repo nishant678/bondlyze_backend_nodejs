@@ -1,4 +1,4 @@
-const { query, testConnection } = require('../connection');
+const { query, testConnection } = require('./connection');
 
 /**
  * Create users table
@@ -54,11 +54,11 @@ async function createUserProfilesTable() {
 }
 
 /**
- * Run all migrations
+ * Run all setup functions
  */
-async function runMigrations() {
+async function setupTables() {
   try {
-    console.log('🔄 Starting database migrations...');
+    console.log('🔄 Starting database setup...');
     
     // Test connection first
     const isConnected = await testConnection();
@@ -70,9 +70,9 @@ async function runMigrations() {
     await createUsersTable();
     await createUserProfilesTable();
     
-    console.log('✅ All migrations completed successfully');
+    console.log('✅ All tables setup completed successfully');
   } catch (error) {
-    console.error('❌ Migration failed:', error.message);
+    console.error('❌ Setup failed:', error.message);
     throw error;
   }
 }
@@ -80,6 +80,6 @@ async function runMigrations() {
 module.exports = {
   createUsersTable,
   createUserProfilesTable,
-  runMigrations
+  setupTables
 };
 
