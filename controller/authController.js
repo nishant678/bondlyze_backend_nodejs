@@ -53,60 +53,57 @@ const registerUser = asyncHandler(async (req, res) => {
       });
     }
 
-    // Hash password
-    bcrypt.hash(password, 5, async (err, hash) => {
-      if (err) {
-        console.log(err);
-        return res.status(500).json({
-          message: `Registration Error: ${err.message}`
-        });
-      } else {
-        // Create new user instance
-        const newUser = new User({
-          mobile_number,
-          email,
-          password: hash,
-          name,
-          dob,
-          gender: gender.toLowerCase(),
-          goals,
-          interest
-        });
+    // Create new user instance (password will be hashed in save() method)
+    const newUser = new User({
+      mobile_number,
+      email,
+      password, // Plain password - will be hashed in save() method
+      name,
+      dob,
+      gender: gender.toLowerCase(),
+      goals,
+      interest
+    });
 
-        // Save user to database
-        await newUser.save();
+    // Save user to database (password will be hashed automatically)
+    try {
+      await newUser.save();
 
-        // Handle profile images if uploaded
-        if (req.files && req.files.length > 0) {
-          for (let i = 0; i < req.files.length; i++) {
-            const file = req.files[i];
-            const imageUrl = `/uploads/profile-images/${file.filename}`;
-            await UserProfile.create(newUser.id, imageUrl, i);
-          }
+      // Handle profile images if uploaded
+      if (req.files && req.files.length > 0) {
+        for (let i = 0; i < req.files.length; i++) {
+          const file = req.files[i];
+          const imageUrl = `/uploads/profile-images/${file.filename}`;
+          await UserProfile.create(newUser.id, imageUrl, i);
         }
+      }
 
-        // Get user with profiles for response
-        const userWithProfiles = await User.findByIdWithProfiles(newUser.id);
+      // Get user with profiles for response
+      const userWithProfiles = await User.findByIdWithProfiles(newUser.id);
 
-        // Generate token
-        let token;
-        try {
-          token = generateToken(newUser.id);
-        } catch (error) {
-          return res.status(201).json({
-            message: "New User Added",
-            user: userWithProfiles,
-            error: "Token generation failed. Please set JWT_SECRET in .env file."
-          });
-        }
-
-        res.status(201).json({
+      // Generate token
+      let token;
+      try {
+        token = generateToken(newUser.id);
+      } catch (error) {
+        return res.status(201).json({
           message: "New User Added",
           user: userWithProfiles,
-          token
+          error: "Token generation failed. Please set JWT_SECRET in .env file."
         });
       }
-    });
+
+      res.status(201).json({
+        message: "New User Added",
+        user: userWithProfiles,
+        token
+      });
+    } catch (saveError) {
+      console.log('Save error:', saveError);
+      return res.status(500).json({
+        message: `Registration Error: ${saveError.message}`
+      });
+    }
   } catch (error) {
     console.log(error);
     res.status(500).json({
@@ -116,31 +113,41 @@ const registerUser = asyncHandler(async (req, res) => {
 });
 
 /**
- * @desc    Login user
+ * @desc    Login user with mobile number and password
  * @route   POST /api/auth/login
  * @access  Public
  */
 const loginUser = asyncHandler(async (req, res) => {
   try {
-    const { email, mobile_number, password } = req.body;
+    const { mobile_number, password } = req.body;
 
-    // Validate input data
-    const validation = validateLoginData(req.body);
-    if (!validation.isValid) {
+    // Validate required fields
+    if (!mobile_number) {
       return res.status(400).json({
         success: false,
-        message: 'Validation failed',
-        errors: validation.errors
+        message: 'Mobile number is required'
       });
     }
 
-    // Find user by email or mobile number
-    let user;
-    if (email) {
-      user = await User.findOne({ email });
-    } else if (mobile_number) {
-      user = await User.findOne({ mobile_number });
+    if (!password) {
+      return res.status(400).json({
+        success: false,
+        message: 'Password is required'
+      });
     }
+
+    // Trim and validate mobile number format
+    const trimmedMobile = String(mobile_number).trim();
+    const mobileRegex = /^[0-9]{10,15}$/;
+    if (!mobileRegex.test(trimmedMobile)) {
+      return res.status(400).json({
+        success: false,
+        message: 'Please provide a valid mobile number (10-15 digits)'
+      });
+    }
+
+    // Find user by mobile number
+    const user = await User.findOne({ mobile_number: trimmedMobile });
 
     if (!user) {
       return res.status(401).json({
@@ -150,7 +157,9 @@ const loginUser = asyncHandler(async (req, res) => {
     }
 
     // Verify password
-    const isPasswordValid = await User.verifyPassword(password, user.password);
+    const trimmedPassword = String(password).trim();
+    const isPasswordValid = await User.verifyPassword(trimmedPassword, user.password);
+    
     if (!isPasswordValid) {
       return res.status(401).json({
         success: false,
